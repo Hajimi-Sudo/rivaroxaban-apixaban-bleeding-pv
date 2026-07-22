@@ -1,0 +1,5 @@
+drug,field,event_reports,recorded_reports,completeness,analysis_allowed_at_20pct
+rivaroxaban,dechallenge_recorded,665,444,0.6676691729323309,True
+rivaroxaban,rechallenge_recorded,665,479,0.7203007518796992,True
+apixaban,dechallenge_recorded,90,63,0.7,True
+apixaban,rechallenge_recorded,90,37,0.4111111111111111,True

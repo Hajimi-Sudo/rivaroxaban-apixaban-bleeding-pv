@@ -1,0 +1,17 @@
+drug,field,code,event_reports,reports_with_code,fraction_of_event_reports,codes_nonexclusive
+rivaroxaban,dechal,D,665,12,0.01804511278195489,True
+rivaroxaban,dechal,N,665,16,0.02406015037593985,True
+rivaroxaban,dechal,U,665,155,0.23308270676691728,True
+rivaroxaban,dechal,Y,665,261,0.3924812030075188,True
+rivaroxaban,rechal,D,665,14,0.021052631578947368,True
+rivaroxaban,rechal,N,665,246,0.3699248120300752,True
+rivaroxaban,rechal,U,665,216,0.324812030075188,True
+rivaroxaban,rechal,Y,665,3,0.004511278195488722,True
+apixaban,dechal,D,90,1,0.011111111111111112,True
+apixaban,dechal,N,90,4,0.044444444444444446,True
+apixaban,dechal,U,90,37,0.4111111111111111,True
+apixaban,dechal,Y,90,21,0.23333333333333334,True
+apixaban,rechal,D,90,4,0.044444444444444446,True
+apixaban,rechal,N,90,1,0.011111111111111112,True
+apixaban,rechal,U,90,29,0.32222222222222224,True
+apixaban,rechal,Y,90,3,0.03333333333333333,True

@@ -1,0 +1,3 @@
+drug,event_reports,exact_event_date_reports,linked_exact_start_and_event_reports,valid_tto_reports,valid_tto_fraction,median_days,q1_days,q3_days,excluded_negative_or_gt_3650
+rivaroxaban,665,400,303,286,0.43007518796992483,21.0,6.0,82.75,17
+apixaban,90,40,20,17,0.18888888888888888,29.0,5.0,100.0,3

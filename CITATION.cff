@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this software or aggregate release, please cite the associated manuscript and this repository."
+title: "Rivaroxaban–Apixaban Bleeding Pharmacovigilance"
+type: software
+version: 1.0.0
+date-released: 2026-07-22
+repository-code: "https://github.com/Hajimi-Sudo/rivaroxaban-apixaban-bleeding-pv"
+license: MIT
+authors:
+  - family-names: Liu
+    given-names: Cuicui
+  - family-names: Dong
+    given-names: Qiyu
+  - family-names: Liang
+    given-names: Weijun
+  - family-names: Wu
+    given-names: Shuang
+preferred-citation:
+  type: article
+  title: "Phenotype-dependent reporting of uterine and vaginal bleeding with rivaroxaban versus apixaban: a cross-national pharmacovigilance study"
+  authors:
+    - family-names: Liu
+      given-names: Cuicui
+    - family-names: Dong
+      given-names: Qiyu
+    - family-names: Liang
+      given-names: Weijun
+    - family-names: Wu
+      given-names: Shuang
