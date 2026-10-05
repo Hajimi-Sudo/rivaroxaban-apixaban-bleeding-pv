@@ -1,0 +1,29 @@
+{
+  "method": "inverse-variance Wald test for log-ROR heterogeneity",
+  "strata": [
+    {
+      "stratum": "United States",
+      "a_exposed_event": 592,
+      "b_exposed_non_event": 2571,
+      "c_comparator_event": 66,
+      "d_comparator_non_event": 1359,
+      "log_or": 1.5563060997428344,
+      "variance": 0.01796549322813358,
+      "zero_cell_correction": false
+    },
+    {
+      "stratum": "non-US",
+      "a_exposed_event": 73,
+      "b_exposed_non_event": 957,
+      "c_comparator_event": 24,
+      "d_comparator_non_event": 536,
+      "log_or": 0.5327363804182932,
+      "variance": 0.05827590052485885,
+      "zero_cell_correction": false
+    }
+  ],
+  "pooled_log_or": 1.31511251767606,
+  "q_statistic": 13.741812927927997,
+  "degrees_freedom": 1,
+  "p_heterogeneity": 0.00020973297057931325
+}

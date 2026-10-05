@@ -1,0 +1,6 @@
+drug,eligible_suspect_reports,aub_reports,stable_20
+rivaroxaban,150,47,True
+apixaban,54,5,False
+edoxaban,2,1,False
+dabigatran,16,3,False
+warfarin,239,11,False

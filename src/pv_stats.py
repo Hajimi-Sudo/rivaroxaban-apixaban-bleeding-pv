@@ -7,7 +7,8 @@ from typing import Iterable
 
 import numpy as np
 from scipy.optimize import brentq
-from scipy.stats import fisher_exact, norm
+from scipy.stats import chi2, fisher_exact, norm
+from scipy.stats.contingency import odds_ratio
 
 
 def corrected_cells(a: int, b: int, c: int, d: int) -> tuple[np.ndarray, bool]:
@@ -26,7 +27,10 @@ def two_by_two_statistics(a: int, b: int, c: int, d: int) -> dict[str, float | i
     se_ror = math.sqrt(1 / aa + 1 / bb + 1 / cc + 1 / dd)
     prr = (aa / (aa + bb)) / (cc / (cc + dd))
     se_prr = math.sqrt(1 / aa - 1 / (aa + bb) + 1 / cc - 1 / (cc + dd))
-    _, fisher_p = fisher_exact([[a, b], [c, d]], alternative="two-sided")
+    table = [[a, b], [c, d]]
+    _, fisher_p = fisher_exact(table, alternative="two-sided")
+    conditional = odds_ratio(table, kind="conditional")
+    exact_ci = conditional.confidence_interval(confidence_level=0.95)
     return {
         "a_exposed_event": int(a),
         "b_exposed_non_event": int(b),
@@ -35,6 +39,9 @@ def two_by_two_statistics(a: int, b: int, c: int, d: int) -> dict[str, float | i
         "ror": float(ror),
         "ror_ci95_lower": float(math.exp(math.log(ror) - 1.96 * se_ror)),
         "ror_ci95_upper": float(math.exp(math.log(ror) + 1.96 * se_ror)),
+        "conditional_mle_or": float(conditional.statistic),
+        "conditional_exact_ci95_lower": float(exact_ci.low),
+        "conditional_exact_ci95_upper": float(exact_ci.high),
         "prr": float(prr),
         "prr_ci95_lower": float(math.exp(math.log(prr) - 1.96 * se_prr)),
         "prr_ci95_upper": float(math.exp(math.log(prr) + 1.96 * se_prr)),
@@ -43,6 +50,45 @@ def two_by_two_statistics(a: int, b: int, c: int, d: int) -> dict[str, float | i
         "exposed_event_stable_20": bool(a >= 20),
         "comparator_event_stable_20": bool(c >= 20),
         "displayable_cells_gte_3": bool(a >= 3 and c >= 3),
+    }
+
+
+def log_or_heterogeneity(
+    tables: Iterable[tuple[str, int, int, int, int]],
+) -> dict[str, object]:
+    """Test log-ROR heterogeneity across mutually exclusive strata."""
+    rows = []
+    for label, a, b, c, d in tables:
+        cells, corrected = corrected_cells(a, b, c, d)
+        aa, bb, cc, dd = cells
+        log_or = math.log((aa * dd) / (bb * cc))
+        variance = 1 / aa + 1 / bb + 1 / cc + 1 / dd
+        rows.append(
+            {
+                "stratum": label,
+                "a_exposed_event": int(a),
+                "b_exposed_non_event": int(b),
+                "c_comparator_event": int(c),
+                "d_comparator_non_event": int(d),
+                "log_or": float(log_or),
+                "variance": float(variance),
+                "zero_cell_correction": corrected,
+            }
+        )
+    if len(rows) < 2:
+        raise ValueError("At least two strata are required for a heterogeneity test")
+    weights = np.asarray([1 / row["variance"] for row in rows], dtype=float)
+    effects = np.asarray([row["log_or"] for row in rows], dtype=float)
+    pooled = float(np.sum(weights * effects) / np.sum(weights))
+    q = float(np.sum(weights * (effects - pooled) ** 2))
+    degrees_freedom = len(rows) - 1
+    return {
+        "method": "inverse-variance Wald test for log-ROR heterogeneity",
+        "strata": rows,
+        "pooled_log_or": pooled,
+        "q_statistic": q,
+        "degrees_freedom": degrees_freedom,
+        "p_heterogeneity": float(chi2.sf(q, degrees_freedom)),
     }
 
 

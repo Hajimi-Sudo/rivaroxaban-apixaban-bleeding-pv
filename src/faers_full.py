@@ -22,24 +22,29 @@ from faers_pilot import (
     read_table_chunks,
     schema_audit,
 )
-from pv_stats import benjamini_hochberg, minimum_detectable_or, two_by_two_statistics
+from pv_stats import (
+    benjamini_hochberg,
+    log_or_heterogeneity,
+    minimum_detectable_or,
+    two_by_two_statistics,
+)
 
 
 NARROW_AUB_TERMS = {"ABNORMAL UTERINE BLEEDING", "HEAVY MENSTRUAL BLEEDING"}
 EXPLANATORY_OUTCOME_GROUPS = {
     "menstrual_specific": {"HEAVY MENSTRUAL BLEEDING", "INTERMENSTRUAL BLEEDING"},
     "uterine_specific": {"ABNORMAL UTERINE BLEEDING", "UTERINE HAEMORRHAGE"},
-    "vaginal_haemorrhage_only": {"VAGINAL HAEMORRHAGE"},
     "broad_excluding_vaginal_haemorrhage": set(AUB_TERMS) - {"VAGINAL HAEMORRHAGE"},
 }
 ALL_SUSPECT_ROLES = {"PS", "SS"}
 VTE_PATTERN = re.compile(r"\b(?:DEEP VEIN THROMBOSIS|PULMONARY EMBOLISM|VENOUS THROMBO|VTE)\b", re.I)
 AF_PATTERN = re.compile(r"\b(?:ATRIAL FIBRILLATION|ATRIAL FLUTTER)\b", re.I)
-# FDA AEMS identified menorrhagia as a potential rivaroxaban signal in 2021Q1;
-# the label was updated in April 2021. Exclude the two-quarter communication window.
+# FDA AEMS identified menorrhagia as a potential class-wide oral-anticoagulant
+# signal in 2021Q1; the relevant labels were updated in April 2021.
 SAFETY_COMMUNICATION_PERIODS = {"2021Q1", "2021Q2"}
-HEALTHCARE_OCCUPATIONS = {"MD", "PH", "OT"}
+HEALTHCARE_OCCUPATIONS = {"MD", "PH", "HP", "OT"}
 CONSUMER_OCCUPATIONS = {"CN"}
+LAWYER_OCCUPATIONS = {"LW"}
 MAX_PLAUSIBLE_TTO_DAYS = 3650
 
 
@@ -198,7 +203,7 @@ def collect_serious_outcomes(records, event_universe: set[str]) -> dict[str, set
 
 
 def collect_indication_reports(records, ps_keys: dict[str, set[tuple[str, str]]]) -> dict[str, dict[str, set[str]]]:
-    result = {kind: {drug: set() for drug in DRUG_ALIASES} for kind in ("vte", "af")}
+    result = {kind: {drug: set() for drug in DRUG_ALIASES} for kind in ("any", "vte", "af")}
     all_keys = set().union(*ps_keys.values())
     usecols = ["primaryid", "caseid", "indi_drug_seq", "indi_pt"]
     for record in records:
@@ -213,6 +218,9 @@ def collect_indication_reports(records, ps_keys: dict[str, set[tuple[str, str]]]
                 dmask = pd.Series(
                     [key in drug_keys for key in zip(chunk["primaryid"], chunk["indi_drug_seq"])],
                     index=chunk.index,
+                )
+                result["any"][drug].update(
+                    chunk.loc[dmask & normalized.notna() & normalized.ne(""), "primaryid"]
                 )
                 result["vte"][drug].update(chunk.loc[dmask & normalized.str.contains(VTE_PATTERN, na=False), "primaryid"])
                 result["af"][drug].update(chunk.loc[dmask & normalized.str.contains(AF_PATTERN, na=False), "primaryid"])
@@ -259,8 +267,8 @@ def fda_date_to_period(value: int | float | str) -> str:
 
 
 def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) -> dict[str, object]:
-    archives_dir = project_root / "data" / "raw" / "faers" / "archives"
-    manifest_path = project_root / "data" / "raw" / "faers" / "manifest" / "download_manifest_sha256.csv"
+    archives_dir = project_root / ".aris" / "data" / "faers" / "archives"
+    manifest_path = project_root / ".aris" / "data" / "faers" / "manifest" / "download_manifest_sha256.csv"
     periods = periods or period_range_from_manifest(manifest_path)
     if not output_dir.is_absolute():
         output_dir = project_root / output_dir
@@ -309,6 +317,32 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
     )
     (output_dir / "primary_contrast.json").write_text(json.dumps(primary, indent=2), encoding="utf-8")
 
+    background_rows = []
+    for drug in ("rivaroxaban", "apixaban"):
+        exposed_ids = exposures["ps"][drug] & cohort_primary
+        comparator_ids = cohort_primary - exposed_ids
+        background = two_by_two_statistics(
+            len(exposed_ids & broad_aub),
+            len(exposed_ids - broad_aub),
+            len(comparator_ids & broad_aub),
+            len(comparator_ids - broad_aub),
+        )
+        background.update(
+            {
+                "analysis": f"background_{drug}_vs_all_other_reports",
+                "exposed": drug,
+                "comparator": "all_other_reports_in_eligible_faers_background",
+                "eligible_background_reports": len(cohort_primary),
+            }
+        )
+        background_rows.append(background)
+    qvals = benjamini_hochberg(row["fisher_exact_p"] for row in background_rows)
+    for row, q in zip(background_rows, qvals):
+        row["bh_fdr_q_background_family"] = q
+    pd.DataFrame(background_rows).to_csv(
+        output_dir / "background_disproportionality.csv", index=False
+    )
+
     demo_by_id = demo.set_index("primaryid", drop=False)
     event_dates = {
         pid: date for pid, date in zip(
@@ -321,6 +355,196 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
         "rivaroxaban": riv_only & broad_aub,
         "apixaban": api_only & broad_aub,
     }
+
+    occupation_codes = demo_by_id["occp_cod"].fillna("").str.strip().str.upper()
+
+    def reporter_group(code: str) -> str:
+        if code in HEALTHCARE_OCCUPATIONS:
+            return "healthcare_professional"
+        if code in CONSUMER_OCCUPATIONS:
+            return "consumer"
+        if code in LAWYER_OCCUPATIONS:
+            return "lawyer"
+        if not code:
+            return "missing"
+        return "other"
+
+    reporter_groups = occupation_codes.map(reporter_group)
+
+    def period_group(period: str) -> str:
+        if period < "2021Q1":
+            return "pre_2021q1"
+        if period in SAFETY_COMMUNICATION_PERIODS:
+            return "2021q1_q2"
+        return "post_2021q2"
+
+    characteristic_rows = []
+    missingness_rows = []
+    association_rows = []
+    for drug, ids in (("rivaroxaban", riv_only), ("apixaban", api_only)):
+        subset = demo_by_id.loc[sorted(ids)].copy()
+        ages = subset["age_years"].dropna().astype(float)
+        for statistic, value in (
+            ("mean", ages.mean()),
+            ("sd", ages.std(ddof=1)),
+            ("median", ages.median()),
+            ("q1", ages.quantile(0.25)),
+            ("q3", ages.quantile(0.75)),
+        ):
+            characteristic_rows.append(
+                {
+                    "drug": drug,
+                    "variable": "age_years",
+                    "level_or_statistic": statistic,
+                    "n": len(ages),
+                    "fraction": None,
+                    "value": float(value),
+                }
+            )
+        drug_reporter = reporter_groups.loc[subset.index]
+        country = subset["reporter_country"].fillna("").str.strip().str.upper()
+        country_group = country.map(
+            lambda value: "missing" if not value else ("United States" if value in {"US", "USA", "UNITED STATES"} else "non-US")
+        )
+        drug_period = pd.Series(
+            [period_group(period_by_id[pid]) for pid in subset.index], index=subset.index
+        )
+        any_ind = indications["any"][drug]
+        vte_ind = indications["vte"][drug]
+        af_ind = indications["af"][drug]
+
+        def indication_group(pid: str) -> str:
+            if pid in vte_ind and pid in af_ind:
+                return "VTE_and_AF"
+            if pid in vte_ind:
+                return "VTE"
+            if pid in af_ind:
+                return "AF"
+            if pid in any_ind:
+                return "other_recorded_indication"
+            return "no_recorded_indication"
+
+        indication_groups = pd.Series(
+            [indication_group(pid) for pid in subset.index], index=subset.index
+        )
+        for variable, values in (
+            ("reporter_group", drug_reporter),
+            ("reporter_country_group", country_group),
+            ("calendar_period", drug_period),
+            ("indication_group", indication_groups),
+        ):
+            for level, count in values.value_counts(dropna=False).items():
+                characteristic_rows.append(
+                    {
+                        "drug": drug,
+                        "variable": variable,
+                        "level_or_statistic": str(level),
+                        "n": int(count),
+                        "fraction": float(count / len(subset)),
+                        "value": None,
+                    }
+                )
+        frame = pd.DataFrame(
+            {
+                "drug": drug,
+                "event_status": ["broad_outcome" if pid in broad_aub else "no_broad_outcome" for pid in subset.index],
+                "reporter_group": drug_reporter.values,
+                "reporter_country_group": country_group.values,
+                "calendar_period": drug_period.values,
+            }
+        )
+        association_rows.append(frame)
+
+        female_drug_ids = (exposures["ps"][drug] & cohort_all_female)
+        other = "apixaban" if drug == "rivaroxaban" else "rivaroxaban"
+        female_drug_ids = female_drug_ids - exposures["ps"][other]
+        female_drug = demo_by_id.loc[sorted(female_drug_ids)]
+        missingness_rows.extend(
+            [
+                {
+                    "population": f"exclusive_{drug}_primary_suspect_female_reports",
+                    "variable": "age_missing_or_unconvertible",
+                    "missing_n": int(female_drug["age_years"].isna().sum()),
+                    "denominator_n": int(len(female_drug)),
+                },
+                {
+                    "population": f"eligible_{drug}_primary_suspect_reports",
+                    "variable": "reporter_occupation_missing",
+                    "missing_n": int(drug_reporter.eq("missing").sum()),
+                    "denominator_n": int(len(subset)),
+                },
+                {
+                    "population": f"eligible_{drug}_primary_suspect_reports",
+                    "variable": "reporter_country_missing",
+                    "missing_n": int(country.eq("").sum()),
+                    "denominator_n": int(len(subset)),
+                },
+                {
+                    "population": f"eligible_{drug}_primary_suspect_reports",
+                    "variable": "indication_not_recorded",
+                    "missing_n": int(sum(pid not in any_ind for pid in subset.index)),
+                    "denominator_n": int(len(subset)),
+                },
+                {
+                    "population": f"eligible_{drug}_primary_suspect_reports",
+                    "variable": "exact_event_date_missing",
+                    "missing_n": int(sum(pid not in event_dates for pid in subset.index)),
+                    "denominator_n": int(len(subset)),
+                },
+            ]
+        )
+
+    sex_code = demo["sex"].fillna("").str.strip().str.upper()
+    missingness_rows.extend(
+        [
+            {
+                "population": "all_deduplicated_faers_cases",
+                "variable": "sex_missing",
+                "missing_n": int(sex_code.eq("").sum()),
+                "denominator_n": int(len(demo)),
+            },
+            {
+                "population": "female_deduplicated_faers_cases",
+                "variable": "age_missing_or_unconvertible",
+                "missing_n": int(female["age_years"].isna().sum()),
+                "denominator_n": int(len(female)),
+            },
+        ]
+    )
+    characteristics = pd.DataFrame(characteristic_rows)
+    characteristics.to_csv(output_dir / "cohort_characteristics.csv", index=False)
+    characteristics.loc[
+        characteristics["variable"].eq("indication_group")
+    ].to_csv(output_dir / "indication_distribution.csv", index=False)
+    associations = pd.concat(association_rows, ignore_index=True)
+    associations.groupby(
+        ["drug", "event_status", "reporter_group", "reporter_country_group", "calendar_period"],
+        dropna=False,
+    ).size().reset_index(name="n").to_csv(
+        output_dir / "reporter_source_associations.csv", index=False
+    )
+
+    for drug, event_ids in event_ids_by_drug.items():
+        missingness_rows.extend(
+            [
+                {
+                    "population": f"eligible_{drug}_broad_outcome_reports",
+                    "variable": "exact_event_date_missing",
+                    "missing_n": int(sum(pid not in event_dates for pid in event_ids)),
+                    "denominator_n": int(len(event_ids)),
+                },
+                {
+                    "population": f"eligible_{drug}_broad_outcome_reports",
+                    "variable": "exact_drug_start_date_missing",
+                    "missing_n": int(sum(pid not in therapy_starts[drug] for pid in event_ids)),
+                    "denominator_n": int(len(event_ids)),
+                },
+            ]
+        )
+    missingness = pd.DataFrame(missingness_rows)
+    missingness["missing_fraction"] = missingness["missing_n"] / missingness["denominator_n"]
+    missingness.to_csv(output_dir / "missingness_by_drug.csv", index=False)
+
     tto_rows = [
         summarize_time_to_onset(drug, event_ids_by_drug[drug], event_dates, therapy_starts[drug])
         for drug in ("rivaroxaban", "apixaban")
@@ -384,6 +608,8 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
         ("rivaroxaban", "edoxaban"),
         ("rivaroxaban", "dabigatran"),
         ("rivaroxaban", "warfarin"),
+        ("apixaban", "edoxaban"),
+        ("apixaban", "dabigatran"),
         ("apixaban", "warfarin"),
     ]
     family_a = []
@@ -396,12 +622,80 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
     qvals = benjamini_hochberg(row["fisher_exact_p"] for row in family_a)
     for row, q in zip(family_a, qvals):
         row["bh_fdr_q"] = q
-    pd.DataFrame(family_a).to_csv(output_dir / "family_A_drug_contrasts.csv", index=False)
+    family_a_frame = pd.DataFrame(family_a)
+    family_a_frame.to_csv(output_dir / "family_A_drug_contrasts.csv", index=False)
+    family_a_frame.to_csv(output_dir / "symmetric_active_comparators.csv", index=False)
 
     base_riv, base_api = exposures["ps"]["rivaroxaban"], exposures["ps"]["apixaban"]
     occupations = demo_by_id["occp_cod"].fillna("").str.strip().str.upper()
     healthcare_cohort = cohort_primary & set(demo_by_id.index[occupations.isin(HEALTHCARE_OCCUPATIONS)])
     consumer_cohort = cohort_primary & set(demo_by_id.index[occupations.isin(CONSUMER_OCCUPATIONS)])
+
+    reporter_tables = []
+    reporter_results = []
+    for name, stratum in (
+        ("healthcare_professional", healthcare_cohort),
+        ("consumer", consumer_cohort),
+    ):
+        result, _, _ = contrast(
+            base_riv, base_api, broad_aub, stratum,
+            "rivaroxaban", "apixaban", f"reporter_{name}",
+        )
+        reporter_results.append({"stratum": name, **result})
+        reporter_tables.append(
+            (
+                name,
+                result["a_exposed_event"],
+                result["b_exposed_non_event"],
+                result["c_comparator_event"],
+                result["d_comparator_non_event"],
+            )
+        )
+    reporter_heterogeneity = log_or_heterogeneity(reporter_tables)
+    for row in reporter_results:
+        row["heterogeneity_method"] = reporter_heterogeneity["method"]
+        row["heterogeneity_q"] = reporter_heterogeneity["q_statistic"]
+        row["heterogeneity_df"] = reporter_heterogeneity["degrees_freedom"]
+        row["heterogeneity_p"] = reporter_heterogeneity["p_heterogeneity"]
+    pd.DataFrame(reporter_results).to_csv(
+        output_dir / "reporter_source_interaction.csv", index=False
+    )
+
+    calendar_specs = [
+        ("pre_2021q1", {pid for pid in cohort_primary if period_by_id.get(pid) < "2021Q1"}),
+        ("2021q1_q2", {pid for pid in cohort_primary if period_by_id.get(pid) in SAFETY_COMMUNICATION_PERIODS}),
+        ("post_2021q2", {pid for pid in cohort_primary if period_by_id.get(pid) > "2021Q2"}),
+    ]
+    calendar_rows = []
+    calendar_tables = []
+    for name, stratum in calendar_specs:
+        result, _, _ = contrast(
+            base_riv, base_api, broad_aub, stratum,
+            "rivaroxaban", "apixaban", f"calendar_{name}",
+        )
+        calendar_rows.append({"period_group": name, **result})
+        calendar_tables.append(
+            (
+                name,
+                result["a_exposed_event"],
+                result["b_exposed_non_event"],
+                result["c_comparator_event"],
+                result["d_comparator_non_event"],
+            )
+        )
+    calendar_heterogeneity = log_or_heterogeneity(calendar_tables)
+    pd.DataFrame(calendar_rows).to_csv(output_dir / "calendar_period_strata.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "method": calendar_heterogeneity["method"],
+                "q_statistic": calendar_heterogeneity["q_statistic"],
+                "degrees_freedom": calendar_heterogeneity["degrees_freedom"],
+                "p_heterogeneity": calendar_heterogeneity["p_heterogeneity"],
+            }
+        ]
+    ).to_csv(output_dir / "calendar_period_heterogeneity.csv", index=False)
+
     sensitivity_inputs = [
         ("all_suspect", exposures["all_suspect"]["rivaroxaban"], exposures["all_suspect"]["apixaban"], broad_aub, cohort_primary),
         ("age_12_55", base_riv, base_api, broad_aub, cohort_age_12_55),
@@ -411,13 +705,6 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
         ("narrow_pt", base_riv, base_api, narrow_aub, cohort_primary),
         ("healthcare_professional_reporter", base_riv, base_api, broad_aub, healthcare_cohort),
         ("consumer_reporter", base_riv, base_api, broad_aub, consumer_cohort),
-        (
-            "exclude_2021q1_q2_safety_communication",
-            base_riv,
-            base_api,
-            broad_aub,
-            {pid for pid in cohort_primary if period_by_id.get(pid) not in SAFETY_COMMUNICATION_PERIODS},
-        ),
     ]
     family_c = []
     for name, riv, api, outcome, cohort in sensitivity_inputs:
@@ -445,6 +732,24 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
     pd.DataFrame(phenotype_rows).to_csv(
         output_dir / "post_result_phenotype_decomposition.csv", index=False
     )
+
+    sparse_rows = []
+    for family_name, rows in (
+        ("primary", [primary]),
+        ("background", background_rows),
+        ("secondary_active_comparator", family_a),
+        ("prespecified_sensitivity", family_c),
+        ("post_result_outcome_decomposition", phenotype_rows),
+        ("calendar_period", calendar_rows),
+    ):
+        for row in rows:
+            cells = [
+                row["a_exposed_event"], row["b_exposed_non_event"],
+                row["c_comparator_event"], row["d_comparator_non_event"],
+            ]
+            if min(cells) < 20:
+                sparse_rows.append({"analysis_family": family_name, **row})
+    pd.DataFrame(sparse_rows).to_csv(output_dir / "sparse_exact_intervals.csv", index=False)
 
     flow = pd.DataFrame(
         [
@@ -485,8 +790,8 @@ def run(project_root: Path, output_dir: Path, periods: list[str] | None = None) 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--output-dir", type=Path, default=Path("results/faers_primary"))
+    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--output-dir", type=Path, default=Path("experiment/main/results/faers_primary"))
     parser.add_argument("--periods", nargs="+")
     return parser.parse_args()
 

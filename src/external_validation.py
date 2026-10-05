@@ -121,13 +121,15 @@ def active_comparator_result(
 
 
 def run_canada(project_root: Path, output_dir: Path) -> dict[str, object]:
-    data_dir = project_root / "data" / "raw" / "canada" / "cvponline_extract_20260331"
+    data_dir = project_root / ".aris" / "data" / "cvard" / "cvponline_extract_20260331"
     reports = read_canada(data_dir / "reports.txt", CANADA_REPORT_COLUMNS)
     mapping, canonical = canada_canonical_map(data_dir, reports)
     canonical["age_y_num"] = pd.to_numeric(canonical["age_y"], errors="coerce")
+    female_mask = canonical["gender_eng"].str.strip().str.upper().eq("FEMALE")
+    female_age_missing_or_unparseable = int((female_mask & canonical["age_y_num"].isna()).sum())
     eligible = set(
         canonical.loc[
-            canonical["gender_eng"].str.strip().str.upper().eq("FEMALE")
+            female_mask
             & canonical["age_y_num"].between(15, 49),
             "report_id",
         ]
@@ -164,6 +166,9 @@ def run_canada(project_root: Path, output_dir: Path) -> dict[str, object]:
         {
             "database": "Canada Vigilance",
             "extract_date": "2026-03-31",
+            "deduplicated_reports": int(len(canonical)),
+            "female_reports": int(female_mask.sum()),
+            "female_age_missing_or_unparseable": female_age_missing_or_unparseable,
             "eligible_reports": len(eligible),
             "duplicate_source_reports_collapsed": int(len(reports) - len(canonical)),
         }
@@ -184,48 +189,85 @@ def jader_age_20_49(age: pd.Series) -> pd.Series:
 
 
 def run_jader(project_root: Path, output_dir: Path) -> dict[str, object]:
-    data_dir = project_root / "data" / "raw" / "jader" / "extracted"
+    data_dir = project_root / ".aris" / "data" / "jader" / "extracted"
     demo = pd.read_csv(data_dir / "demo202607.csv", dtype="string", encoding="cp932", keep_default_na=False)
     demo["report_n"] = pd.to_numeric(demo["報告回数"], errors="raise")
     demo = demo.sort_values(["識別番号", "report_n"], kind="mergesort").drop_duplicates("識別番号", keep="last")
-    eligible_demo = demo[demo["性別"].eq("女性") & jader_age_20_49(demo["年齢"])].copy()
     female_age_missing_or_unparseable = int(
         (demo["性別"].eq("女性") & ~jader_age_20_49(demo["年齢"]) & ~demo["年齢"].str.match(r"^(?:0|10|50|60|70|80|90|100)歳代$")).sum()
     )
-    retained = set(zip(eligible_demo["識別番号"], eligible_demo["報告回数"]))
-    eligible_ids = set(eligible_demo["識別番号"])
-
     drug_table = pd.read_csv(data_dir / "drug202607.csv", dtype="string", encoding="cp932", keep_default_na=False)
-    keys = pd.Series(list(zip(drug_table["識別番号"], drug_table["報告回数"])), index=drug_table.index)
-    drug_table = drug_table[keys.isin(retained) & drug_table["医薬品の関与"].eq("被疑薬")].copy()
-    combined = drug_table["医薬品（一般名）"].str.upper() + " " + drug_table["医薬品（販売名）"].str.upper()
-    exposures = {drug: set() for drug in JADER_DRUG_ALIASES}
-    for drug, aliases in JADER_DRUG_ALIASES.items():
-        matched = combined.apply(lambda value: any(alias in value for alias in aliases))
-        exposures[drug].update(drug_table.loc[matched, "識別番号"])
-
     reactions = pd.read_csv(data_dir / "reac202607.csv", dtype="string", encoding="cp932", keep_default_na=False)
+    drug_keys = pd.Series(list(zip(drug_table["識別番号"], drug_table["報告回数"])), index=drug_table.index)
     reaction_keys = pd.Series(list(zip(reactions["識別番号"], reactions["報告回数"])), index=reactions.index)
-    reactions = reactions[reaction_keys.isin(retained)]
-    outcome = set(reactions.loc[reactions["有害事象"].isin(JADER_AUB_TERMS), "識別番号"])
 
-    result = active_comparator_result(exposures, outcome)
+    age_rules = {
+        "female_20s_40s_primary": demo["性別"].eq("女性") & jader_age_20_49(demo["年齢"]),
+        "female_10s_50s_broader": demo["性別"].eq("女性") & demo["年齢"].isin(
+            {"10歳代", "20歳代", "30歳代", "40歳代", "50歳代"}
+        ),
+        "all_female_reports_regardless_of_age": demo["性別"].eq("女性"),
+    }
+    sensitivity_rows = []
+    rule_counts: dict[str, list[dict[str, object]]] = {}
+    for rule_name, rule_mask in age_rules.items():
+        eligible_demo = demo[rule_mask].copy()
+        retained = set(zip(eligible_demo["識別番号"], eligible_demo["報告回数"]))
+        eligible_ids = set(eligible_demo["識別番号"])
+        eligible_drugs = drug_table[
+            drug_keys.isin(retained) & drug_table["医薬品の関与"].eq("被疑薬")
+        ].copy()
+        combined = (
+            eligible_drugs["医薬品（一般名）"].str.upper()
+            + " "
+            + eligible_drugs["医薬品（販売名）"].str.upper()
+        )
+        exposures = {drug: set() for drug in JADER_DRUG_ALIASES}
+        for drug, aliases in JADER_DRUG_ALIASES.items():
+            matched = combined.apply(lambda value: any(alias in value for alias in aliases))
+            exposures[drug].update(eligible_drugs.loc[matched, "識別番号"])
+        eligible_reactions = reactions[reaction_keys.isin(retained)]
+        outcome = set(
+            eligible_reactions.loc[
+                eligible_reactions["有害事象"].isin(JADER_AUB_TERMS), "識別番号"
+            ]
+        )
+        row = active_comparator_result(exposures, outcome)
+        row.update(
+            {
+                "database": "JADER",
+                "extract": "2026-07",
+                "age_rule": rule_name,
+                "deduplicated_reports": int(len(demo)),
+                "eligible_reports": len(eligible_ids),
+                "female_age_missing_or_unparseable": female_age_missing_or_unparseable,
+            }
+        )
+        sensitivity_rows.append(row)
+        rule_counts[rule_name] = [
+            {
+                "drug": drug,
+                "eligible_suspect_reports": len(ids),
+                "aub_reports": len(ids & outcome),
+                "stable_20": len(ids & outcome) >= 20,
+            }
+            for drug, ids in exposures.items()
+        ]
+
+    qvals = benjamini_hochberg(row["fisher_exact_p"] for row in sensitivity_rows)
+    for row, q in zip(sensitivity_rows, qvals):
+        row["bh_fdr_q_age_rule_family"] = q
+    result = dict(sensitivity_rows[0])
     result.update(
         {
-            "database": "JADER",
-            "extract": "2026-07",
-            "eligible_reports": len(eligible_ids),
             "age_proxy": "female 20s, 30s, or 40s",
             "directional_only": True,
-            "female_age_missing_or_unparseable": female_age_missing_or_unparseable,
         }
     )
-    counts = [
-        {"drug": drug, "eligible_suspect_reports": len(ids), "aub_reports": len(ids & outcome), "stable_20": len(ids & outcome) >= 20}
-        for drug, ids in exposures.items()
-    ]
+    counts = rule_counts["female_20s_40s_primary"]
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(counts).to_csv(output_dir / "jader_drug_event_counts.csv", index=False)
+    pd.DataFrame(sensitivity_rows).to_csv(output_dir / "jader_age_rule_sensitivity.csv", index=False)
     (output_dir / "jader_primary_contrast.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     return result
 
@@ -248,8 +290,8 @@ def run(project_root: Path, output_dir: Path) -> dict[str, object]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--output-dir", type=Path, default=Path("results/external_validation"))
+    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--output-dir", type=Path, default=Path("experiment/main/results/external_validation"))
     return parser.parse_args()
 
 

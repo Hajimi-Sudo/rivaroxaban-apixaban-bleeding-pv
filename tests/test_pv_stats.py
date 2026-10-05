@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from pv_stats import benjamini_hochberg, minimum_detectable_or, two_by_two_statistics
+from pv_stats import benjamini_hochberg, log_or_heterogeneity, minimum_detectable_or, two_by_two_statistics
 from faers_full import fda_date_to_period
 
 
@@ -13,6 +13,19 @@ class TestPvStats(unittest.TestCase):
         self.assertAlmostEqual(result["prr"], 4.0)
         self.assertGreater(result["ror_ci95_upper"], result["ror"])
         self.assertLess(result["ror_ci95_lower"], result["ror"])
+
+    def test_exact_interval_handles_zero_cell(self) -> None:
+        result = two_by_two_statistics(2, 10, 0, 12)
+        self.assertTrue(result["jeffreys_0_5_correction"])
+        self.assertGreaterEqual(result["conditional_exact_ci95_lower"], 0)
+        self.assertEqual(result["conditional_exact_ci95_upper"], float("inf"))
+
+    def test_log_or_heterogeneity(self) -> None:
+        result = log_or_heterogeneity(
+            [("hcp", 88, 1188, 27, 618), ("consumer", 481, 1928, 39, 1020)]
+        )
+        self.assertEqual(result["degrees_freedom"], 1)
+        self.assertLess(result["p_heterogeneity"], 0.05)
 
     def test_bh_is_monotone_after_ranking(self) -> None:
         p = [0.04, 0.001, 0.03, 0.20]

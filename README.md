@@ -1,6 +1,6 @@
 # Rivaroxaban–Apixaban Bleeding Pharmacovigilance
 
-Reproducible code and aggregate outputs for a multi-database pharmacovigilance study of phenotype-dependent uterine, menstrual, and vaginal bleeding reports with rivaroxaban versus apixaban.
+Reproducible code and aggregate outputs for a multi-database pharmacovigilance study of outcome-definition-dependent uterine, menstrual, and vaginal bleeding reporting with rivaroxaban versus apixaban.
 
 ## Repository Layout
 
@@ -14,7 +14,10 @@ Reproducible code and aggregate outputs for a multi-database pharmacovigilance s
 │   └── pv_stats.py
 ├── scripts/
 │   ├── download_faers_ascii.py
-│   └── render_figures.py
+│   ├── render_figures.py
+│   ├── render_numeric_flow.py
+│   ├── country_strata_postprocess.py
+│   └── validate_revision_outputs.py
 ├── tests/
 │   ├── test_faers_pilot.py
 │   ├── test_faers_full.py
@@ -37,12 +40,15 @@ Reproducible code and aggregate outputs for a multi-database pharmacovigilance s
 ```
 
 - `src/faers_pilot.py`: schema audit, FAERS deduplication, cohort construction, and pilot analysis.
-- `src/faers_full.py`: complete FAERS primary, sensitivity, phenotype-decomposition, temporal, and descriptive analyses.
+- `src/faers_full.py`: complete FAERS primary, sensitivity, outcome-definition decomposition, temporal, and descriptive analyses.
 - `src/external_validation.py`: separate Canada Vigilance and JADER analyses.
 - `src/dechallenge_followup.py`: report-level dechallenge and rechallenge code summaries.
 - `src/pv_stats.py`: ROR, PRR, Fisher test, confidence intervals, BH-FDR, and minimum detectable odds ratio.
 - `scripts/download_faers_ascii.py`: discovery, download, ZIP validation, and SHA-256 manifest generation for FDA quarterly ASCII archives.
 - `scripts/render_figures.py`: regeneration of manuscript Figures 2–4 from frozen aggregate tables.
+- `scripts/render_numeric_flow.py`: regeneration of the numerical FAERS report-flow Figure 1.
+- `scripts/country_strata_postprocess.py`: aggregate-only US/non-US stratified analysis and heterogeneity test.
+- `scripts/validate_revision_outputs.py`: frozen-cell, family-size, missingness, and exact-interval validation gates.
 - `data/aggregate/`: small, non-patient-level tables underlying the manuscript results and figures.
 - `figures/`: publication figures in PNG format.
 - `tests/`: unit tests that do not require raw pharmacovigilance data.
@@ -53,7 +59,7 @@ The study compares spontaneous-report patterns for rivaroxaban and apixaban in F
 
 FAERS is the prespecified primary database. Canada Vigilance and JADER are not pooled with FAERS because the databases differ in reporting systems, schemas, age representation, and eligible populations.
 
-The primary outcome is a frozen five-term phenotype:
+The primary outcome is a frozen five-term coding-based definition:
 
 1. abnormal uterine bleeding;
 2. heavy menstrual bleeding;
@@ -63,7 +69,7 @@ The primary outcome is a frozen five-term phenotype:
 
 The principal estimand is a reporting odds ratio, not incidence, prevalence, comparative clinical risk, or causality.
 
-The broad FAERS contrast was positive, but narrower and term-level analyses showed pronounced phenotype heterogeneity. In particular, the narrow abnormal-uterine/heavy-menstrual phenotype reversed direction, whereas uterine-haemorrhage and vaginal-haemorrhage coding produced strong positive contrasts.
+The broad FAERS contrast was positive, but narrower and term-level analyses showed pronounced outcome-definition heterogeneity. In particular, the narrow abnormal-uterine/heavy-menstrual definition reversed direction, whereas uterine-haemorrhage and vaginal-haemorrhage coding produced strong positive contrasts.
 
 No predictive or causal machine-learning model is claimed in the associated manuscript.
 
@@ -109,7 +115,9 @@ The `data/aggregate/` directory contains frozen non-patient-level outputs:
 - cohort-flow counts;
 - sensitivity-analysis cells;
 - external-database cells;
-- post-result phenotype decomposition;
+- post-result outcome-definition decomposition;
+- full-database background, symmetric active-comparator, reporter-source, country, and calendar-period analyses;
+- conditional exact intervals for sparse tables;
 - quarterly counts;
 - time-to-onset summaries;
 - dechallenge/rechallenge completeness and code distributions;
@@ -159,7 +167,7 @@ The statistical analysis consists of:
 - Benjamini–Hochberg false-discovery-rate adjustment;
 - minimum detectable odds ratio at 80% power;
 - prespecified sensitivity analyses;
-- post-result explanatory phenotype decomposition;
+- post-result explanatory outcome-definition decomposition;
 - database-specific external analyses without pooling.
 
 A previously explored temporal model failed its development gate and is intentionally excluded because it does not support any claim in the manuscript.
@@ -170,13 +178,13 @@ Validated scientific-analysis environment:
 
 - Python 3.12.3
 - pandas 3.0.3
-- NumPy 2.4.6
+- NumPy 2.5.3
 - SciPy 1.17.1
 
 Figure and test tooling:
 
-- matplotlib 3.11.1
-- pytest 9.1.1
+- matplotlib 3.10.7
+- pytest 8.4.2
 
 The exact package list is in `requirements.txt`.
 
@@ -305,7 +313,7 @@ Figures 2–4 can be regenerated directly from the frozen aggregate tables:
 python scripts/render_figures.py
 ```
 
-Figure 1 is a study-workflow graphic and is retained as a publication asset rather than regenerated by the data plotting script.
+Figure 1 can be regenerated with `python scripts/render_numeric_flow.py`; it contains only audited aggregate cohort counts.
 
 ## Key Results Summary
 
@@ -330,7 +338,7 @@ Interpretive boundary:
 - they do not estimate incidence or prevalence;
 - they do not establish treatment risk or causality;
 - external databases are not pooled;
-- post-result phenotype decomposition is explanatory.
+- post-result outcome-definition decomposition is explanatory.
 
 ## Output Files
 
@@ -344,7 +352,7 @@ Expected files include:
 | `cohort_flow.csv` | Cohort construction and reconciliation |
 | `family_A_drug_contrasts.csv` | Secondary active comparators |
 | `family_C_sensitivities.csv` | Prespecified sensitivity family |
-| `post_result_phenotype_decomposition.csv` | Preferred-term and fixed-group decomposition |
+| `post_result_phenotype_decomposition.csv` | Preferred-term and fixed-group outcome-definition decomposition |
 | `quarterly_active_comparator_counts.csv` | Quarterly report and outcome counts |
 | `time_to_onset_summary.csv` | Exact-date time-to-onset completeness |
 | `dechallenge_rechallenge_completeness.csv` | Descriptive follow-up-field completeness |

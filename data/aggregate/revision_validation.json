@@ -1,0 +1,118 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "check": "primary a_exposed_event equals frozen value 665",
+      "pass": true
+    },
+    {
+      "check": "primary b_exposed_non_event equals frozen value 3528",
+      "pass": true
+    },
+    {
+      "check": "primary c_comparator_event equals frozen value 90",
+      "pass": true
+    },
+    {
+      "check": "primary d_comparator_non_event equals frozen value 1895",
+      "pass": true
+    },
+    {
+      "check": "primary cohort reconciliation passes",
+      "pass": true
+    },
+    {
+      "check": "background family contains two tests",
+      "pass": true
+    },
+    {
+      "check": "symmetric comparator family contains six tests",
+      "pass": true
+    },
+    {
+      "check": "prespecified sensitivity family contains eight tests",
+      "pass": true
+    },
+    {
+      "check": "outcome decomposition family contains eight unique tests",
+      "pass": true
+    },
+    {
+      "check": "outcome decomposition has no duplicate analysis",
+      "pass": true
+    },
+    {
+      "check": "calendar analysis contains pre/during/post strata",
+      "pass": true
+    },
+    {
+      "check": "reporter interaction contains HCP and consumer strata",
+      "pass": true
+    },
+    {
+      "check": "JADER analysis contains three age rules",
+      "pass": true
+    },
+    {
+      "check": "all missingness denominators are positive",
+      "pass": true
+    },
+    {
+      "check": "all missingness fractions are valid",
+      "pass": true
+    },
+    {
+      "check": "cohort characteristics cover required variables",
+      "pass": true
+    },
+    {
+      "check": "all sparse tables have exact lower intervals",
+      "pass": true
+    },
+    {
+      "check": "all sparse tables have exact upper intervals",
+      "pass": true
+    },
+    {
+      "check": "calendar heterogeneity p value is finite",
+      "pass": true
+    },
+    {
+      "check": "reporter heterogeneity p value is finite",
+      "pass": true
+    }
+  ],
+  "files_checked": [
+    "experiment\\results\\revision_round1\\aub_term_counts_by_quarter.csv",
+    "experiment\\results\\revision_round1\\background_disproportionality.csv",
+    "experiment\\results\\revision_round1\\calendar_period_heterogeneity.csv",
+    "experiment\\results\\revision_round1\\calendar_period_strata.csv",
+    "experiment\\results\\revision_round1\\cohort_characteristics.csv",
+    "experiment\\results\\revision_round1\\cohort_flow.csv",
+    "experiment\\results\\revision_round1\\dechallenge_rechallenge_completeness.csv",
+    "experiment\\results\\revision_round1\\event_report_descriptors.csv",
+    "experiment\\results\\revision_round1\\family_A_drug_contrasts.csv",
+    "experiment\\results\\revision_round1\\family_C_sensitivities.csv",
+    "experiment\\results\\revision_round1\\missingness_by_drug.csv",
+    "experiment\\results\\revision_round1\\post_result_phenotype_decomposition.csv",
+    "experiment\\results\\revision_round1\\primary_contrast.json",
+    "experiment\\results\\revision_round1\\primaryid_fda_dt_correction_audit.csv",
+    "experiment\\results\\revision_round1\\quarterly_active_comparator_counts.csv",
+    "experiment\\results\\revision_round1\\reporter_country_heterogeneity.json",
+    "experiment\\results\\revision_round1\\reporter_country_strata.csv",
+    "experiment\\results\\revision_round1\\reporter_source_associations.csv",
+    "experiment\\results\\revision_round1\\reporter_source_interaction.csv",
+    "experiment\\results\\revision_round1\\run_metadata.json",
+    "experiment\\results\\revision_round1\\schema_audit.json",
+    "experiment\\results\\revision_round1\\serious_outcome_descriptors.csv",
+    "experiment\\results\\revision_round1\\sparse_exact_intervals.csv",
+    "experiment\\results\\revision_round1\\symmetric_active_comparators.csv",
+    "experiment\\results\\revision_round1\\time_to_onset_summary.csv",
+    "experiment\\results\\revision_round1_external\\canada_drug_event_counts.csv",
+    "experiment\\results\\revision_round1_external\\canada_primary_contrast.json",
+    "experiment\\results\\revision_round1_external\\family_B_external_replication.csv",
+    "experiment\\results\\revision_round1_external\\jader_age_rule_sensitivity.csv",
+    "experiment\\results\\revision_round1_external\\jader_drug_event_counts.csv",
+    "experiment\\results\\revision_round1_external\\jader_primary_contrast.json"
+  ]
+}

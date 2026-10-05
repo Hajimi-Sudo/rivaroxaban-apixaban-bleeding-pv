@@ -1,0 +1,65 @@
+drug,event_status,reporter_group,reporter_country_group,calendar_period,n
+apixaban,broad_outcome,consumer,United States,2021q1_q2,2
+apixaban,broad_outcome,consumer,United States,post_2021q2,26
+apixaban,broad_outcome,consumer,United States,pre_2021q1,6
+apixaban,broad_outcome,consumer,non-US,post_2021q2,5
+apixaban,broad_outcome,healthcare_professional,United States,2021q1_q2,2
+apixaban,broad_outcome,healthcare_professional,United States,post_2021q2,17
+apixaban,broad_outcome,healthcare_professional,United States,pre_2021q1,8
+apixaban,broad_outcome,healthcare_professional,non-US,2021q1_q2,1
+apixaban,broad_outcome,healthcare_professional,non-US,post_2021q2,9
+apixaban,broad_outcome,healthcare_professional,non-US,pre_2021q1,7
+apixaban,broad_outcome,missing,United States,post_2021q2,5
+apixaban,broad_outcome,missing,non-US,post_2021q2,2
+apixaban,no_broad_outcome,consumer,United States,2021q1_q2,99
+apixaban,no_broad_outcome,consumer,United States,post_2021q2,547
+apixaban,no_broad_outcome,consumer,United States,pre_2021q1,236
+apixaban,no_broad_outcome,consumer,non-US,2021q1_q2,3
+apixaban,no_broad_outcome,consumer,non-US,post_2021q2,58
+apixaban,no_broad_outcome,consumer,non-US,pre_2021q1,77
+apixaban,no_broad_outcome,healthcare_professional,United States,2021q1_q2,16
+apixaban,no_broad_outcome,healthcare_professional,United States,post_2021q2,186
+apixaban,no_broad_outcome,healthcare_professional,United States,pre_2021q1,216
+apixaban,no_broad_outcome,healthcare_professional,non-US,2021q1_q2,9
+apixaban,no_broad_outcome,healthcare_professional,non-US,post_2021q2,165
+apixaban,no_broad_outcome,healthcare_professional,non-US,pre_2021q1,206
+apixaban,no_broad_outcome,missing,United States,2021q1_q2,1
+apixaban,no_broad_outcome,missing,United States,post_2021q2,49
+apixaban,no_broad_outcome,missing,United States,pre_2021q1,9
+apixaban,no_broad_outcome,missing,non-US,post_2021q2,18
+rivaroxaban,broad_outcome,consumer,United States,2021q1_q2,4
+rivaroxaban,broad_outcome,consumer,United States,post_2021q2,10
+rivaroxaban,broad_outcome,consumer,United States,pre_2021q1,443
+rivaroxaban,broad_outcome,consumer,non-US,2021q1_q2,1
+rivaroxaban,broad_outcome,consumer,non-US,post_2021q2,14
+rivaroxaban,broad_outcome,consumer,non-US,pre_2021q1,9
+rivaroxaban,broad_outcome,healthcare_professional,United States,2021q1_q2,2
+rivaroxaban,broad_outcome,healthcare_professional,United States,post_2021q2,9
+rivaroxaban,broad_outcome,healthcare_professional,United States,pre_2021q1,113
+rivaroxaban,broad_outcome,healthcare_professional,non-US,2021q1_q2,6
+rivaroxaban,broad_outcome,healthcare_professional,non-US,post_2021q2,23
+rivaroxaban,broad_outcome,healthcare_professional,non-US,pre_2021q1,17
+rivaroxaban,broad_outcome,lawyer,United States,pre_2021q1,7
+rivaroxaban,broad_outcome,missing,United States,post_2021q2,2
+rivaroxaban,broad_outcome,missing,United States,pre_2021q1,2
+rivaroxaban,broad_outcome,missing,non-US,post_2021q2,2
+rivaroxaban,broad_outcome,missing,non-US,pre_2021q1,1
+rivaroxaban,no_broad_outcome,consumer,United States,2021q1_q2,27
+rivaroxaban,no_broad_outcome,consumer,United States,post_2021q2,54
+rivaroxaban,no_broad_outcome,consumer,United States,pre_2021q1,1647
+rivaroxaban,no_broad_outcome,consumer,non-US,2021q1_q2,11
+rivaroxaban,no_broad_outcome,consumer,non-US,post_2021q2,58
+rivaroxaban,no_broad_outcome,consumer,non-US,pre_2021q1,131
+rivaroxaban,no_broad_outcome,healthcare_professional,United States,2021q1_q2,24
+rivaroxaban,no_broad_outcome,healthcare_professional,United States,post_2021q2,50
+rivaroxaban,no_broad_outcome,healthcare_professional,United States,pre_2021q1,696
+rivaroxaban,no_broad_outcome,healthcare_professional,non-US,2021q1_q2,28
+rivaroxaban,no_broad_outcome,healthcare_professional,non-US,post_2021q2,157
+rivaroxaban,no_broad_outcome,healthcare_professional,non-US,pre_2021q1,558
+rivaroxaban,no_broad_outcome,lawyer,United States,2021q1_q2,1
+rivaroxaban,no_broad_outcome,lawyer,United States,pre_2021q1,28
+rivaroxaban,no_broad_outcome,lawyer,non-US,pre_2021q1,1
+rivaroxaban,no_broad_outcome,missing,United States,post_2021q2,9
+rivaroxaban,no_broad_outcome,missing,United States,pre_2021q1,35
+rivaroxaban,no_broad_outcome,missing,non-US,post_2021q2,10
+rivaroxaban,no_broad_outcome,missing,non-US,pre_2021q1,3
