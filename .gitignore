@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments and secrets
+.venv/
+venv/
+.env
+.env.*
+*.pem
+*.key
+credentials*
+secrets*
+
+# Raw and intermediate data
+data/raw/*
+!data/raw/README.md
+data/interim/
+*.part
+*.tmp
+
+# Generated analysis outputs
+results/*
+!results/README.md
+figures/figure_render_audit.json
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
