@@ -1,0 +1,27 @@
+study_name: rivaroxaban_apixaban_uterine_bleeding_upgrade
+analysis_type: updated_surveillance_baseline
+period_start: 2015Q1
+period_end: 2026Q2
+primary_database: FAERS
+confirmatory_claim: false
+outcome_groups:
+  menstrual_specific:
+    - HEAVY MENSTRUAL BLEEDING
+    - INTERMENSTRUAL BLEEDING
+  abnormal_uterine:
+    - ABNORMAL UTERINE BLEEDING
+  uterine_haemorrhage:
+    - UTERINE HAEMORRHAGE
+  vaginal_haemorrhage:
+    - VAGINAL HAEMORRHAGE
+  historical_broad_composite:
+    - ABNORMAL UTERINE BLEEDING
+    - HEAVY MENSTRUAL BLEEDING
+    - INTERMENSTRUAL BLEEDING
+    - UTERINE HAEMORRHAGE
+    - VAGINAL HAEMORRHAGE
+population: female reports aged 15-49 years
+exposure_role: primary suspect
+comparator: mutually exclusive rivaroxaban-only versus apixaban-only reports
+external_databases: contextual only; no pooling
+interpretation: report-level disproportionality; not incidence, causality, or comparative clinical risk
